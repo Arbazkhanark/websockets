@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebSocket Demo</title>
+</head>
+<body>
+  <input id="message" placeholder="Type message">
+  <button onclick="sendMessage()">Send</button>
+  <div id="output"></div>
+
+  <script>
+    // WebSocket connect karo
+    const ws = new WebSocket('ws://localhost:8080');
+
+    // Connection open hone pe
+    ws.onopen = () => {
+      console.log('Connected to server');
+      document.getElementById('output').innerHTML += '<p>Connected!</p>';
+    };
+
+    // Message receive hone pe
+    ws.onmessage = (event) => {
+      document.getElementById('output').innerHTML += `<p>Received: ${event.data}</p>`;
+    };
+
+    // Connection close hone pe
+    ws.onclose = () => {
+      console.log('Disconnected');
+    };
+
+    // Send button function
+    function sendMessage() {
+      const msg = document.getElementById('message').value;
+      ws.send(msg);
+      document.getElementById('message').value = '';
+    }
+
+    // In frontend script, add reconnect
+    ws.onclose = () => {
+      setTimeout(() => {
+      console.log('Reconnecting...');
+      ws = new WebSocket('ws://localhost:8080'); // Re-create connection
+      // Re-attach events here...
+      }, 1000); // Retry after 1 second
+    };
+
+
+  </script>
+</body>
+</html>
