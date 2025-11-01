@@ -42,8 +42,12 @@ wss.on("connection", (ws) => {
 
     // Broadcast message to all connected clients
     clients.forEach((c) => {
+      console.log(c.socket.readyState,"Ready State")
+      console.log(WebSocket.OPEN,"This will check if Websocket is OPENED or NOT")
       if (c.socket.readyState === WebSocket.OPEN) {
         c.socket.send(`Broadcast from ${clientId}: ${message}`);
+      } else {
+        console.log("WebSocket is not open. Current state:", ws.readyState);
       }
     });
   });
