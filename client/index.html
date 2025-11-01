@@ -1,50 +1,81 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>WebSocket Demo</title>
-</head>
-<body>
-  <input id="message" placeholder="Type message">
-  <button onclick="sendMessage()">Send</button>
-  <div id="output"></div>
+  <head>
+    <title>WebSocket Demo</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+      #output {
+        margin-top: 15px;
+        border: 1px solid #ccc;
+        padding: 10px;
+        min-height: 100px;
+        background: #f9f9f9;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>💬 WebSocket Chat</h2>
 
-  <script>
-    // WebSocket connect karo
-    const ws = new WebSocket('ws://localhost:8080');
+    <!-- Input box for typing messages -->
+    <input id="message" placeholder="Type message" />
+    <button onclick="sendMessage()">Send</button>
 
-    // Connection open hone pe
-    ws.onopen = () => {
-      console.log('Connected to server');
-      document.getElementById('output').innerHTML += '<p>Connected!</p>';
-    };
+    <!-- Display messages here -->
+    <div id="output"></div>
 
-    // Message receive hone pe
-    ws.onmessage = (event) => {
-      document.getElementById('output').innerHTML += `<p>Received: ${event.data}</p>`;
-    };
+    <script>
+      let ws; // WebSocket instance
 
-    // Connection close hone pe
-    ws.onclose = () => {
-      console.log('Disconnected');
-    };
+      // Function to connect to the WebSocket server
+      function connect() {
+        ws = new WebSocket("ws://localhost:3000");
 
-    // Send button function
-    function sendMessage() {
-      const msg = document.getElementById('message').value;
-      ws.send(msg);
-      document.getElementById('message').value = '';
-    }
+        // When connected
+        ws.onopen = () => {
+          console.log("✅ Connected to WebSocket server");
+          document.getElementById("output").innerHTML += "<p>✅ Connected!</p>";
+        };
 
-    // In frontend script, add reconnect
-    ws.onclose = () => {
-      setTimeout(() => {
-      console.log('Reconnecting...');
-      ws = new WebSocket('ws://localhost:8080'); // Re-create connection
-      // Re-attach events here...
-      }, 1000); // Retry after 1 second
-    };
+        // When a message is received from the server
+        ws.onmessage = (event) => {
+          console.log("📩 Message received:", event.data);
+          document.getElementById("output").innerHTML += `<p>📥 ${event.data}</p>`;
+        };
 
+        // When the connection closes, try reconnecting automatically
+        ws.onclose = () => {
+          console.log("⚠️ Disconnected... trying to reconnect in 2s");
+          document.getElementById("output").innerHTML +=
+            "<p>⚠️ Connection lost. Reconnecting...</p>";
+          setTimeout(connect, 2000); // Auto-reconnect
+        };
 
-  </script>
-</body>
+        // Handle connection errors
+        ws.onerror = (error) => {
+          console.error("❌ WebSocket Error:", error);
+        };
+      }
+
+      // Function to send message to server
+      function sendMessage() {
+        const msg = document.getElementById("message").value;
+
+        // Only send if WebSocket connection is open
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(msg);
+          document.getElementById("message").value = "";
+          document.getElementById("output").innerHTML += `<p>📤 Sent: ${msg}</p>`;
+        } else {
+          document.getElementById("output").innerHTML +=
+            "<p>⚠️ Connection not open!</p>";
+        }
+      }
+
+      // Connect to WebSocket server when page loads
+      connect();
+    </script>
+  </body>
 </html>

@@ -10,10 +10,16 @@
     "start": "node dist/index.js",
     "clean": "rm -rf dist"
   },
-  "keywords": ["node", "websocket", "typescript", "server"],
+  "keywords": [
+    "node",
+    "websocket",
+    "typescript",
+    "server"
+  ],
   "author": "Arbaz Khan",
   "license": "ISC",
   "dependencies": {
+    "uuid": "^13.0.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
