@@ -19,10 +19,13 @@
   "author": "Arbaz Khan",
   "license": "ISC",
   "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1",
     "uuid": "^13.0.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@types/express": "^5.0.5",
     "@types/node": "^24.9.2",
     "@types/ws": "^8.5.10",
     "ts-node": "^10.9.2",

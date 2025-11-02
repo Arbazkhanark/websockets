@@ -1,81 +1,164 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>WebSocket Demo</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        padding: 20px;
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Socket.IO Chat App with Read Receipts</title>
+
+  <!-- Socket.IO client library -->
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+
+  <!-- Optional external CSS -->
+  <link rel="stylesheet" href="style.css" />
+
+</head>
+<body>
+  <div class="container">
+    <h1>💬 Socket.IO Chat</h1>
+
+    <!-- Username input -->
+    <div class="username-box">
+      <input id="username" placeholder="Enter username..." />
+      <button onclick="setUsername()">Join</button>
+    </div>
+
+    <!-- Room management buttons -->
+    <div class="rooms">
+      <button onclick="joinRoom('room1')">Room 1</button>
+      <button onclick="joinRoom('room2')">Room 2</button>
+      <button onclick="leaveRoom()">Leave Room</button>
+      <button onclick="switchGlobal()">Global Chat</button>
+    </div>
+
+    <!-- Chat messages container -->
+    <div id="chat-box" class="chat-box"></div>
+
+    <!-- Input for sending new messages -->
+    <div class="input-area">
+      <input id="message" placeholder="Type message..." />
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Socket.IO client connection ---
+    const socket = io("http://localhost:3000"); // Connect to server
+    const chatBox = document.getElementById("chat-box");
+
+    let currentRoom = null; // Track current room user is in
+    let username = null; // Track user's username
+    const chatMessages = {}; // Store messages by ID for read receipts
+
+    // --- Socket events ---
+
+    // Connected to server
+    socket.on("connect", () => addSystemMessage(`🟢 Connected: ${socket.id}`));
+
+    // Receive system messages
+    socket.on("system", (msg) => addSystemMessage(msg));
+
+    // Receive chat messages (room or global)
+    socket.on("chat", (data) => addChatMessage(data));
+
+    // Receive "seen" updates for messages
+    socket.on("updateSeen", ({ messageId, seenBy }) => updateSeen(messageId, seenBy));
+
+    // --- Set username ---
+    function setUsername() {
+      username = document.getElementById("username").value.trim();
+      if (!username) return alert("Enter username");
+
+      // Tell server our username
+      socket.emit("setUsername", username);
+
+      // Hide username input after joining
+      document.querySelector(".username-box").style.display = "none";
+    }
+
+    // --- Room management functions ---
+
+    // Join a room
+    function joinRoom(room) {
+      socket.emit("joinRoom", room); // Notify server
+      currentRoom = room; // Track current room
+      chatBox.innerHTML = ""; // Clear chat for new room
+    }
+
+    // Leave current room
+    function leaveRoom() {
+      socket.emit("leaveRoom"); // Notify server
+      currentRoom = null;
+      addSystemMessage("⬅️ You are now in Global Chat");
+    }
+
+    // Switch to global chat
+    function switchGlobal() {
+      currentRoom = null;
+      chatBox.innerHTML = "";
+      addSystemMessage("🌐 Switched to Global Chat");
+    }
+
+    // --- Sending messages ---
+    function sendMessage() {
+      const msg = document.getElementById("message").value.trim();
+      if (!msg) return;
+
+      // Emit message to server with optional ACK callback
+      socket.emit("message", msg, (ack) => addSystemMessage(`✔️ ${ack}`));
+
+      // Clear input box
+      document.getElementById("message").value = "";
+    }
+
+    // --- Display chat messages ---
+    function addChatMessage({ id, user, text, time, type, seenBy }) {
+      // Save/update message for read receipts
+      chatMessages[id] = { ...chatMessages[id], id, user, text, time, type, seenBy: seenBy || [] };
+
+      // Create div for message
+      const div = document.createElement("div");
+
+      // Apply classes based on sender and message type
+      div.className = user === username ? "msg self" : type === "room" ? "msg room" : "msg global";
+      div.id = id;
+
+      // Message content
+      div.innerHTML = `
+        <span class="user">${user === username ? "You" : user}</span>
+        <span class="text">${text}</span>
+        <span class="time">${time}</span>
+        <span class="seen" id="seen-${id}">${seenBy?.length ? "👁️ Seen by: " + seenBy.join(", ") : ""}</span>
+      `;
+
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight; // Scroll to bottom
+
+      // Notify server that this message is seen
+      if (user !== username) {
+        socket.emit("messageSeen", id, user, currentRoom);
       }
-      #output {
-        margin-top: 15px;
-        border: 1px solid #ccc;
-        padding: 10px;
-        min-height: 100px;
-        background: #f9f9f9;
-      }
-    </style>
-  </head>
-  <body>
-    <h2>💬 WebSocket Chat</h2>
+    }
 
-    <!-- Input box for typing messages -->
-    <input id="message" placeholder="Type message" />
-    <button onclick="sendMessage()">Send</button>
+    // --- Update read receipts for a message ---
+    function updateSeen(messageId, seenUser) {
+      const msg = chatMessages[messageId];
+      if (!msg) return;
 
-    <!-- Display messages here -->
-    <div id="output"></div>
+      // Add user to seenBy array if not already
+      if (!msg.seenBy.includes(seenUser)) msg.seenBy.push(seenUser);
 
-    <script>
-      let ws; // WebSocket instance
+      // Update "seen" display
+      const seenDiv = document.getElementById(`seen-${messageId}`);
+      if (seenDiv) seenDiv.textContent = "👁️ Seen by: " + msg.seenBy.join(", ");
+    }
 
-      // Function to connect to the WebSocket server
-      function connect() {
-        ws = new WebSocket("ws://localhost:3000");
-
-        // When connected
-        ws.onopen = () => {
-          console.log("✅ Connected to WebSocket server");
-          document.getElementById("output").innerHTML += "<p>✅ Connected!</p>";
-        };
-
-        // When a message is received from the server
-        ws.onmessage = (event) => {
-          console.log("📩 Message received:", event.data);
-          document.getElementById("output").innerHTML += `<p>📥 ${event.data}</p>`;
-        };
-
-        // When the connection closes, try reconnecting automatically
-        ws.onclose = () => {
-          console.log("⚠️ Disconnected... trying to reconnect in 2s");
-          document.getElementById("output").innerHTML +=
-            "<p>⚠️ Connection lost. Reconnecting...</p>";
-          setTimeout(connect, 2000); // Auto-reconnect
-        };
-
-        // Handle connection errors
-        ws.onerror = (error) => {
-          console.error("❌ WebSocket Error:", error);
-        };
-      }
-
-      // Function to send message to server
-      function sendMessage() {
-        const msg = document.getElementById("message").value;
-
-        // Only send if WebSocket connection is open
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(msg);
-          document.getElementById("message").value = "";
-          document.getElementById("output").innerHTML += `<p>📤 Sent: ${msg}</p>`;
-        } else {
-          document.getElementById("output").innerHTML +=
-            "<p>⚠️ Connection not open!</p>";
-        }
-      }
-
-      // Connect to WebSocket server when page loads
-      connect();
-    </script>
-  </body>
+    // --- Display system messages ---
+    function addSystemMessage(text) {
+      const div = document.createElement("div");
+      div.className = "system";
+      div.textContent = text;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  </script>
+</body>
 </html>
